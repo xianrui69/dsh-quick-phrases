@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.4.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"（塌缩态保留 ⚙ 常驻入口）；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot），管理入口从此常驻。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.5.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -16,8 +16,8 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 | ➤ 点击即发送 | 每条短语可独立开启；点击后**延迟验证草稿确实写入**再提交（防抢跑发出空/旧草稿），chip 上带 ➤ 标记 |
 | `/` 短语菜单 | 输入 `/` 出现「短语」分组，**置顶于命令/技能等全部内置组**（`order: -1`），★置顶排最前，按名称/内容模糊过滤；**仅显示带 `/` 标记的短语**（每条独立开关，默认不进菜单，保持菜单清爽） |
 | `/名称` + 回车 | 草稿为 `/短语名` 时，提交自动展开为短语内容（matchEnter 纯文本路径）；此显式命令路径对**全部**短语生效，不受 `/` 开关限制 |
-| 管理面板 | chip 条末尾「⚙ 管理」：增删改 / ★置顶 / ➤自动发送 / **`/` 是否进斜杠菜单** / ↑↓排序 / 显示开关 / JSON 导入导出 / 恢复默认 |
-| 设置页入口 | DSH「设置」对话框左侧导航新增**「快捷短语」** section（`settings.section` slot，机制同 Token 面板）：与 ⚙ 弹层**共用同一编辑器**、同一份 store，快捷条隐藏时也永远可管理 |
+| 浮动管理窗 | 输入框旁「⚙ 管理」打开**浮动窗口**（学 Token 面板）：**拖标题栏放到任意位置，位置持久化**（宿主文件 + localStorage，重开还在原处）；增删改 / ★置顶 / ➤自动发送 / **`/` 是否进斜杠菜单** / ↑↓排序 / 显示开关 / JSON 导入导出 / 恢复默认 |
+| 设置页入口 | DSH「设置」对话框左侧导航**「快捷短语」**（`settings.section` slot，机制同 Token 面板）：点进去**自动弹出同一个浮动管理窗**，快捷条隐藏时也永远可管理 |
 | 宿主文件持久化 | 短语表存 `$DSH_HOME/storages/dsh-quick-phrases/phrases.json`，原子写入（tmp+rename），跨重启、跨浏览器可靠；首次运行自动从旧 localStorage 键迁移；宿主不可达时回退 localStorage |
 | 安全边界 | 纯客户端数据，不进会话日志、不影响模型上下文；宿主路由带同源 fence（loopback + Origin/Sec-Fetch-Site 校验） |
 
@@ -85,8 +85,8 @@ Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-q
 | 点击 chip | 短语内容追加到输入框（空草稿直接填入，否则以空格衔接）；开了 ➤ 的短语验证写入后自动发送 |
 | 输入 `/` | 菜单**最顶部**出现「短语」分组（仅显示带 `/` 标记的短语）；继续输入可按名称/内容过滤 |
 | `/继续` + 回车 | 草稿为该短语名时，提交自动展开为短语内容（对全部短语生效，含未进菜单的） |
-| 点击「⚙ 管理」 | 打开管理面板（★置顶 / ➤自动发送 / `/` 进菜单 / ↑↓排序 / 删除 / JSON 导入导出 / 恢复默认） |
-| 打开「设置」 | 左侧导航点「快捷短语」：设置页内嵌同一块编辑器，快捷条隐藏时也能改 |
+| 点击「⚙ 管理」 | 打开**浮动管理窗**（拖标题栏任意移动，位置记住；★置顶 / ➤自动发送 / `/` 进菜单 / ↑↓排序 / 删除 / JSON 导入导出 / 恢复默认） |
+| 打开「设置」 | 左侧导航点「快捷短语」：自动弹出同一个浮动管理窗，快捷条隐藏时也能改 |
 
 ## 卸载
 
@@ -102,7 +102,7 @@ lib/client.js  客户端 bundle（window.__ModuleLoader__ 格式，手写无需�
                ├─ InputTriggerSource（trigger '/', order -1 置顶；candidates 按 slash 标记过滤 + matchEnter 展开发送）
                ├─ conversation.input.dock slot（chips 条 + 管理面板，React 18 + useSyncExternalStore）
                │   └─ 对齐：运行时镜像输入卡几何（alignBar + ResizeObserver 保鲜）
-               ├─ settings.section slot（v0.4.0：设置对话框「快捷短语」导航项，与 ⚙ 弹层共用编辑器）
+               ├─ settings.section slot（设置对话框「快捷短语」导航项 → 自动弹出浮动管理窗）
                └─ 持久化：宿主文件为准，localStorage 缓存/回退，旧键自动迁移
 ```
 
@@ -112,7 +112,7 @@ lib/client.js  客户端 bundle（window.__ModuleLoader__ 格式，手写无需�
 
 ```powershell
 node scripts/verify.mjs   # 语法 + 包结构检查
-node scripts/smoke.mjs    # 无头逻辑冒烟测试（store / 触发源 / slash 门控 / 持久化迁移，13 项断言）
+node scripts/smoke.mjs    # 无头逻辑冒烟测试（store / 触发源 / slash 门控 / 持久化迁移，16 项断言）
 ```
 
 改动后同步到 profile：
