@@ -43,12 +43,17 @@ const ctx = {
 	effect: (fn) => { fn(); return () => {}; },
 	slots: {
 		inject: (name, factory) => {
-			if (name !== 'conversation.input.dock') throw new Error('unexpected slot: ' + name);
+			if (name !== 'conversation.input.dock' && name !== 'settings.section') throw new Error('unexpected slot: ' + name);
 			factory();
 		},
 		register: (decl, component) => {
-			if (decl.id !== 'quick-phrases' || decl.name !== 'conversation.input.dock') throw new Error('bad slot decl');
-			if (typeof component !== 'function') throw new Error('dock component missing');
+			if (decl.id !== 'quick-phrases') throw new Error('bad slot decl: ' + decl.name);
+			if (typeof component !== 'function') throw new Error('component missing for ' + decl.name);
+			if (decl.name === 'settings.section') {
+				if (typeof decl.label !== 'function' || decl.label() !== '快捷短语') throw new Error('bad settings label');
+				console.log('ok   settings section registered: #', decl.id, 'order', decl.order, 'label', decl.label());
+				return;
+			}
 			console.log('ok   slot registered:', decl.name, '#', decl.id, 'order', decl.order);
 		},
 	},
