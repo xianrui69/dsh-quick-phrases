@@ -1,0 +1,10 @@
+# dsh-quick-phrases bundle patch: mounts the (client-only) plugin into the host
+# composition so the loader creates an entry for it; the client module system
+# then discovers the package's `./client` bundle via its `dsh.client` manifest.
+#
+# Install: copy the package into the profile's node_modules and add it to the
+# profile package.json's `dsh.profile.bundles` list (or use
+# `dsh plugin --profile <name> add <path>` when pnpm/network is available).
+- insert:
+    - id: quick-phrases
+      name: dsh-quick-phrases

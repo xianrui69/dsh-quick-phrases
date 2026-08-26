@@ -1,0 +1,139 @@
+// Offline smoke test: evaluate lib/client.js with stubbed browser/module env
+// and exercise the trigger source + store logic.
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const registered = [];
+globalThis.window = { __ModuleLoader__: { load: (def) => registered.push(def) } };
+const storage = new Map();
+globalThis.localStorage = {
+	getItem: (k) => (storage.has(k) ? storage.get(k) : null),
+	setItem: (k, v) => storage.set(k, v),
+};
+const jsxStub = (type, props, key) => ({ type, props, key });
+const reactStub = {
+	useSyncExternalStore: () => ({}),
+	useState: (init) => [typeof init === 'function' ? init() : init, () => {}],
+	useEffect: () => {},
+};
+const requireStub = (spec) => {
+	if (spec === 'react') return reactStub;
+	if (spec === 'react/jsx-runtime') return { jsx: jsxStub, jsxs: (t, p, k) => jsxStub(t, { ...p, children: [p.children] }, k) };
+	throw new Error('unexpected require: ' + spec);
+};
+
+// Evaluate the bundle (classic script: no import/export inside).
+const code = readFileSync(join(root, 'lib/client.js'), 'utf8');
+new Function('window', code)(globalThis.window);
+
+if (registered.length !== 1 || registered[0].id !== 'dsh-quick-phrases') {
+	console.error('FAIL: module registration', registered.map((r) => r.id));
+	process.exit(1);
+}
+const exports_ = registered[0].factory(requireStub);
+
+let source;
+const ctx = {
+	get: (key) => {
+		if (key !== 'inputTriggers') throw new Error('unexpected service: ' + key);
+		return { registerSource: (src) => { source = src; return () => {}; } };
+	},
+	effect: (fn) => { fn(); return () => {}; },
+	slots: {
+		inject: (name, factory) => {
+			if (name !== 'conversation.input.dock') throw new Error('unexpected slot: ' + name);
+			factory();
+		},
+		register: (decl, component) => {
+			if (decl.id !== 'quick-phrases' || decl.name !== 'conversation.input.dock') throw new Error('bad slot decl');
+			if (typeof component !== 'function') throw new Error('dock component missing');
+			console.log('ok   slot registered:', decl.name, '#', decl.id, 'order', decl.order);
+		},
+	},
+};
+exports_.apply(ctx);
+if (!source || source.trigger !== '/' || source.name !== '短语') {
+	console.error('FAIL: source not registered correctly', source?.name);
+	process.exit(1);
+}
+console.log('ok   source registered:', source.trigger, source.name, 'order', source.order);
+
+const signal = { aborted: false };
+const all = await source.candidates({}, { query: '', signal });
+console.log(`ok   candidates('') = ${all.length}, pinned first: ${all[0].name} (icon ${all[0].icon})`);
+if (all[0].name !== '继续' || all[0].icon !== '★') { console.error('FAIL: pinned-first ordering'); process.exit(1); }
+
+const hit = await source.candidates({}, { query: '日报', signal });
+if (hit.length !== 1 || hit[0].name !== '日报') { console.error('FAIL: query filter', hit); process.exit(1); }
+console.log('ok   candidates(\'日报\') =', hit.map((c) => c.name).join(','));
+
+const pick = source.onPick({ candidate: { value: 'd-continue' } });
+if (pick?.text !== '继续上面的工作，从上次中断的地方接着做。') { console.error('FAIL: onPick', pick); process.exit(1); }
+console.log('ok   onPick → text arm');
+
+const enter = source.matchEnter({}, '/继续');
+if (enter?.text !== '继续上面的工作，从上次中断的地方接着做。') { console.error('FAIL: matchEnter', enter); process.exit(1); }
+if (source.matchEnter({}, '/不存在') !== undefined) { console.error('FAIL: matchEnter should miss'); process.exit(1); }
+if (source.matchEnter({}, '普通消息') !== undefined) { console.error('FAIL: matchEnter non-slash'); process.exit(1); }
+console.log('ok   matchEnter /继续 → expand; miss → undefined');
+
+// autoSubmit: default 继续 is ➤, and the flag persists through localStorage JSON.
+const storeHook = exports_.__store;
+const cont = storeHook.get().phrases.find((p) => p.name === '继续');
+if (cont?.autoSubmit !== true) { console.error('FAIL: default 继续 should have autoSubmit'); process.exit(1); }
+storeHook.update((draft) => { draft.phrases[1].autoSubmit = true; });
+const persisted = JSON.parse(storage.get('dsh-quick-phrases:v2'));
+if (persisted.phrases[1].autoSubmit !== true || persisted.phrases[0].autoSubmit !== true || persisted.barVisible !== true) {
+	console.error('FAIL: autoSubmit persistence', persisted);
+	process.exit(1);
+}
+console.log('ok   autoSubmit default + persistence');
+
+// --- hydrate #1: host file missing → seed from localStorage, POST to host ---
+let posted = null;
+globalThis.fetch = async (url, opts = {}) => {
+	if (opts.method === 'POST') {
+		posted = JSON.parse(opts.body);
+		return { ok: true, json: async () => ({ ok: true }) };
+	}
+	return { ok: true, json: async () => ({ missing: true }) };
+};
+const exports2 = registered[0].factory(requireStub);
+exports2.apply(ctx);
+const store2 = exports2.__store;
+await new Promise((resolve) => setTimeout(resolve, 600)); // debounce is 400ms
+if (posted === null || !Array.isArray(posted.phrases) || posted.phrases.length !== 6) {
+	console.error('FAIL: hydrate did not seed the host file', posted);
+	process.exit(1);
+}
+if (store2.get().phrases.length !== 6 || store2.get().phrases[0].autoSubmit !== true) {
+	console.error('FAIL: hydrate seed state wrong');
+	process.exit(1);
+}
+console.log('ok   hydrate: host-missing → seeded from localStorage + durable POST');
+
+// --- hydrate #2: host file exists → host wins over localStorage ---
+globalThis.fetch = async (url, opts = {}) => {
+	if (opts.method === 'POST') return { ok: true, json: async () => ({ ok: true }) };
+	return {
+		ok: true,
+		json: async () => ({
+			version: 2,
+			barVisible: false,
+			phrases: [{ name: '主机', text: '来自宿主文件', pinned: true, autoSubmit: false }]
+		})
+	};
+};
+const exports3 = registered[0].factory(requireStub);
+exports3.apply(ctx);
+await new Promise((resolve) => setTimeout(resolve, 30));
+const store3 = exports3.__store;
+if (store3.get().phrases.length !== 1 || store3.get().phrases[0].name !== '主机' || store3.get().barVisible !== false) {
+	console.error('FAIL: host state should win', store3.get());
+	process.exit(1);
+}
+console.log('ok   hydrate: host file wins over localStorage');
+
+console.log('SMOKE OK');
