@@ -16,6 +16,10 @@
     "README.md"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xianrui69/dsh-quick-phrases.git"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
