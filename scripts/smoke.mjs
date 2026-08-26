@@ -62,8 +62,18 @@ console.log('ok   source registered:', source.trigger, source.name, 'order', sou
 
 const signal = { aborted: false };
 const all = await source.candidates({}, { query: '', signal });
-console.log(`ok   candidates('') = ${all.length}, pinned first: ${all[0].name} (icon ${all[0].icon})`);
-if (all[0].name !== '继续' || all[0].icon !== '★') { console.error('FAIL: pinned-first ordering'); process.exit(1); }
+console.log(`ok   candidates('') = ${all.length} (slash-on: ${all.map((c) => c.name).join('/')}), pinned first: ${all[0].name} (icon ${all[0].icon})`);
+if (all.length !== 3 || all[0].name !== '继续' || all[0].icon !== '★') { console.error('FAIL: slash gate / pinned-first ordering', all); process.exit(1); }
+
+// v0.3.0: / 菜单成员开关 —— slash:false 的短语不进菜单，置 slash:true 后加入。
+const hidden = await source.candidates({}, { query: '复查', signal });
+if (hidden.length !== 0) { console.error('FAIL: slash-off phrase should not appear in / menu', hidden); process.exit(1); }
+console.log('ok   slash gate: 复查 (slash:false) hidden from / menu');
+const storeHook0 = exports_.__store;
+storeHook0.update((draft) => { const p = draft.phrases.find((x) => x.name === '复查'); if (p) p.slash = true; });
+const joined = await source.candidates({}, { query: '复查', signal });
+if (joined.length !== 1 || joined[0].name !== '复查') { console.error('FAIL: slash toggle should add to / menu', joined); process.exit(1); }
+console.log('ok   slash toggle: 复查 joins / menu after slash=true');
 
 const hit = await source.candidates({}, { query: '日报', signal });
 if (hit.length !== 1 || hit[0].name !== '日报') { console.error('FAIL: query filter', hit); process.exit(1); }
@@ -135,5 +145,10 @@ if (store3.get().phrases.length !== 1 || store3.get().phrases[0].name !== '主�
 	process.exit(1);
 }
 console.log('ok   hydrate: host file wins over localStorage');
+
+// v0.3.0 迁移默认：宿主/旧表里没有 slash 字段的短语，默认不进 / 菜单。
+const legacyMenu = await source.candidates({}, { query: '', signal });
+if (legacyMenu.length !== 0) { console.error('FAIL: legacy phrase without slash should stay out of / menu', legacyMenu); process.exit(1); }
+console.log('ok   sanitize default: legacy phrase (no slash field) stays out of / menu');
 
 console.log('SMOKE OK');
