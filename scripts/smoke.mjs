@@ -106,6 +106,12 @@ if (persisted.phrases[1].autoSubmit !== true || persisted.phrases[0].autoSubmit 
 }
 console.log('ok   autoSubmit default + persistence');
 
+// v0.5.0: 浮动窗位置持久化 —— panel {x,y} 写入 store 并落 localStorage。
+storeHook.update((draft) => { draft.panel = { x: 120, y: 88 }; });
+const persisted2 = JSON.parse(storage.get('dsh-quick-phrases:v2'));
+if (persisted2.panel?.x !== 120 || persisted2.panel?.y !== 88) { console.error('FAIL: panel pos persistence', persisted2); process.exit(1); }
+console.log('ok   panel position persistence (x/y in localStorage)');
+
 // --- hydrate #1: host file missing → seed from localStorage, POST to host ---
 let posted = null;
 globalThis.fetch = async (url, opts = {}) => {
@@ -127,6 +133,7 @@ if (store2.get().phrases.length !== 6 || store2.get().phrases[0].autoSubmit !== 
 	console.error('FAIL: hydrate seed state wrong');
 	process.exit(1);
 }
+if (store2.get().panel?.x !== 120) { console.error('FAIL: hydrate seed should keep panel pos', store2.get().panel); process.exit(1); }
 console.log('ok   hydrate: host-missing → seeded from localStorage + durable POST');
 
 // --- hydrate #2: host file exists → host wins over localStorage ---
@@ -150,6 +157,10 @@ if (store3.get().phrases.length !== 1 || store3.get().phrases[0].name !== '主�
 	process.exit(1);
 }
 console.log('ok   hydrate: host file wins over localStorage');
+
+// v0.5.0 迁移默认：宿主文件没有 panel 字段 → sanitize 成 null（浮动窗用默认居中位）。
+if (store3.get().panel !== null) { console.error('FAIL: missing host panel should sanitize to null', store3.get().panel); process.exit(1); }
+console.log('ok   panel sanitize: host without panel → null');
 
 // v0.3.0 迁移默认：宿主/旧表里没有 slash 字段的短语，默认不进 / 菜单。
 const legacyMenu = await source.candidates({}, { query: '', signal });
