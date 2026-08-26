@@ -117,6 +117,18 @@ Copy-Item -Recurse -Force -Path ".\*" -Destination "$env:DSH_HOME\profiles\web\n
 # 然后重启 DSH
 ```
 
+## 维护者推送
+
+GitHub token 落盘在 **仓库外** 的 `%USERPROFILE%\.github-token`（全局 gitignore 兜底，永远不会被误提交）。
+推送时脚本按需注入认证，不写 `.git/config`：
+
+```powershell
+powershell -File scripts\push.ps1          # 推当前分支到 origin/master
+powershell -File scripts\push.ps1 -Branch master
+```
+
+换 token：直接改 `%USERPROFILE%\.github-token` 那一行即可。
+
 ## License
 
 MIT
