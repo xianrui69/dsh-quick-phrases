@@ -162,6 +162,14 @@ console.log('ok   hydrate: host file wins over localStorage');
 if (store3.get().panel !== null) { console.error('FAIL: missing host panel should sanitize to null', store3.get().panel); process.exit(1); }
 console.log('ok   panel sanitize: host without panel → null');
 
+// v0.6.0: bar 开关 —— 旧表无 bar 字段迁移默认显示；置 false 后持久化。
+if (store3.get().phrases[0].bar !== true) { console.error('FAIL: legacy phrase should default bar=true', store3.get().phrases[0]); process.exit(1); }
+console.log('ok   bar default: legacy phrase (no bar field) shows in quick bar');
+store3.update((draft) => { draft.phrases[0].bar = false; });
+const persisted3 = JSON.parse(storage.get('dsh-quick-phrases:v2'));
+if (persisted3.phrases[0].bar !== false) { console.error('FAIL: bar persistence', persisted3.phrases[0]); process.exit(1); }
+console.log('ok   bar toggle persistence');
+
 // v0.3.0 迁移默认：宿主/旧表里没有 slash 字段的短语，默认不进 / 菜单。
 const legacyMenu = await source.candidates({}, { query: '', signal });
 if (legacyMenu.length !== 0) { console.error('FAIL: legacy phrase without slash should stay out of / menu', legacyMenu); process.exit(1); }
