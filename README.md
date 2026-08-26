@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.2.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.3.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -14,9 +14,9 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 |---|---|
 | 快捷短语条 | 常驻输入框上方（官方 `conversation.input.dock` slot），与输入卡**逐像素对齐**（运行时实测镜像），点击 chip 把短语填入输入框 |
 | ➤ 点击即发送 | 每条短语可独立开启；点击后**延迟验证草稿确实写入**再提交（防抢跑发出空/旧草稿），chip 上带 ➤ 标记 |
-| `/` 短语菜单 | 输入 `/` 出现「短语」分组，**置顶于命令/技能等全部内置组**（`order: -1`），★置顶排最前，按名称/内容模糊过滤 |
-| `/名称` + 回车 | 草稿为 `/短语名` 时，提交自动展开为短语内容（matchEnter 纯文本路径） |
-| 管理面板 | chip 条末尾「⚙ 管理」：增删改 / ★置顶 / ➤自动发送 / ↑↓排序 / 显示开关 / JSON 导入导出 / 恢复默认 |
+| `/` 短语菜单 | 输入 `/` 出现「短语」分组，**置顶于命令/技能等全部内置组**（`order: -1`），★置顶排最前，按名称/内容模糊过滤；**仅显示带 `/` 标记的短语**（每条独立开关，默认不进菜单，保持菜单清爽） |
+| `/名称` + 回车 | 草稿为 `/短语名` 时，提交自动展开为短语内容（matchEnter 纯文本路径）；此显式命令路径对**全部**短语生效，不受 `/` 开关限制 |
+| 管理面板 | chip 条末尾「⚙ 管理」：增删改 / ★置顶 / ➤自动发送 / **`/` 是否进斜杠菜单** / ↑↓排序 / 显示开关 / JSON 导入导出 / 恢复默认 |
 | 宿主文件持久化 | 短语表存 `$DSH_HOME/storages/dsh-quick-phrases/phrases.json`，原子写入（tmp+rename），跨重启、跨浏览器可靠；首次运行自动从旧 localStorage 键迁移；宿主不可达时回退 localStorage |
 | 安全边界 | 纯客户端数据，不进会话日志、不影响模型上下文；宿主路由带同源 fence（loopback + Origin/Sec-Fetch-Site 校验） |
 
@@ -69,7 +69,7 @@ v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为*
 Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-quick-phrases"
 
 # 2. 在 "$env:DSH_HOME\profiles\web\package.json" 里注册两处：
-#    dependencies 加 "dsh-quick-phrases": "^0.2.0"
+#    dependencies 加 "dsh-quick-phrases": "^0.3.0"
 #    dsh.profile.bundles 加 "dsh-quick-phrases"
 
 # 3. 重启 DSH web（新插件需要宿主重启才会被发现）
@@ -82,9 +82,9 @@ Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-q
 | 操作 | 效果 |
 |---|---|
 | 点击 chip | 短语内容追加到输入框（空草稿直接填入，否则以空格衔接）；开了 ➤ 的短语验证写入后自动发送 |
-| 输入 `/` | 菜单**最顶部**出现「短语」分组；继续输入可按名称/内容过滤 |
-| `/继续` + 回车 | 草稿为该短语名时，提交自动展开为短语内容 |
-| 点击「⚙ 管理」 | 打开管理面板（★置顶 / ➤自动发送 / ↑↓排序 / 删除 / JSON 导入导出 / 恢复默认） |
+| 输入 `/` | 菜单**最顶部**出现「短语」分组（仅显示带 `/` 标记的短语）；继续输入可按名称/内容过滤 |
+| `/继续` + 回车 | 草稿为该短语名时，提交自动展开为短语内容（对全部短语生效，含未进菜单的） |
+| 点击「⚙ 管理」 | 打开管理面板（★置顶 / ➤自动发送 / `/` 进菜单 / ↑↓排序 / 删除 / JSON 导入导出 / 恢复默认） |
 
 ## 卸载
 
@@ -97,7 +97,7 @@ Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-q
 ```
 lib/index.js   宿主入口：GET/POST /plugins/dsh-quick-phrases/phrases 路由（同源 fence + 原子写盘）
 lib/client.js  客户端 bundle（window.__ModuleLoader__ 格式，手写无需构建）：
-               ├─ InputTriggerSource（trigger '/', order -1 置顶；onPick 纯文本路径 + matchEnter 展开发送）
+               ├─ InputTriggerSource（trigger '/', order -1 置顶；candidates 按 slash 标记过滤 + matchEnter 展开发送）
                ├─ conversation.input.dock slot（chips 条 + 管理面板，React 18 + useSyncExternalStore）
                │   └─ 对齐：运行时镜像输入卡几何（alignBar + ResizeObserver 保鲜）
                └─ 持久化：宿主文件为准，localStorage 缓存/回退，旧键自动迁移
@@ -109,7 +109,7 @@ lib/client.js  客户端 bundle（window.__ModuleLoader__ 格式，手写无需�
 
 ```powershell
 node scripts/verify.mjs   # 语法 + 包结构检查
-node scripts/smoke.mjs    # 无头逻辑冒烟测试（store / 触发源 / 持久化迁移，10 项断言）
+node scripts/smoke.mjs    # 无头逻辑冒烟测试（store / 触发源 / slash 门控 / 持久化迁移，13 项断言）
 ```
 
 改动后同步到 profile：

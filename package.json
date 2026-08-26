@@ -1,6 +1,6 @@
 {
   "name": "dsh-quick-phrases",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "输入框上方的快捷短语条 + `/` 触发短语菜单（置顶优先、可配置）。Client-only plugin for DeepSeek Harness.",
   "type": "module",
   "main": "lib/index.js",
