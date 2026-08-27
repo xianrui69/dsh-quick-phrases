@@ -126,6 +126,20 @@ const screenB = barPosMath.screenFromAnchorOffset(anchorB, draggedOffset);
 if (screenB.x !== 400 || screenB.y !== 250) { console.error('FAIL: anchor move should follow with same offset', screenB); process.exit(1); }
 console.log('ok   drag offset + anchor follow math');
 
+// v0.7.5: 点击别处关闭 —— 整个浮动单元（管理面板 + chips 条）都是热区，只有单元外才关。
+const guard = exports_.__isInsideFloatingUnit;
+if (typeof guard !== 'function') { console.error('FAIL: click-outside predicate missing'); process.exit(1); }
+const barUnit = {};
+const elInUnit = (sel) => ({ closest: (s) => (s === '.qp-bar-container' ? barUnit : null) });
+const elOutside = { closest: () => null };
+if (guard(elInUnit()) !== true) { console.error('FAIL: panel/chip inside bar unit must NOT close'); process.exit(1); }
+if (guard(elOutside) !== false) { console.error('FAIL: click outside the unit must close'); process.exit(1); }
+if (guard(null) !== false || guard(undefined) !== false || guard({}) !== false) {
+	console.error('FAIL: non-element / closest-less targets must close');
+	process.exit(1);
+}
+console.log('ok   click-outside hot-zone: bar unit stays open, outside closes');
+
 // --- hydrate #1: host file missing → seed from localStorage, POST to host ---
 let posted = null;
 globalThis.fetch = async (url, opts = {}) => {
