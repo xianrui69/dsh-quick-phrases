@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.7.3**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题；v0.7.2 **修复 bar 位置跳动** —— 锚定 barPos 到 bar 本身位置，管理面板用 absolute 定位出现在 bar 正上方，打开/关闭时 bar 位置不再跳动；v0.7.3 **相对锚点定位** —— barPos 改为相对输入框的偏移量，监听布局变化（ResizeObserver + MutationObserver + 定时器后备），自动跟随对话区移动，解决开关右侧面板时 bar 位置不同步的问题。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.7.4**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题；v0.7.2 **修复 bar 位置跳动** —— 锚定 barPos 到 bar 本身位置，管理面板用 absolute 定位出现在 bar 正上方，打开/关闭时 bar 位置不再跳动；v0.7.3 **相对锚点定位** —— barPos 改为相对输入框的偏移量，监听布局变化（ResizeObserver + MutationObserver + 定时器后备），自动跟随对话区移动，解决开关右侧面板时 bar 位置不同步的问题；v0.7.4 **修复拖拽与跟随冲突** —— 拖拽期间暂停跟随循环，落盘时写入新偏移量，恢复布局跟随且不抢回拖拽位置。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -73,6 +73,16 @@ v0.7.2 解决了打开管理面板时的跳动，但 bar 仍使用固定视口�
   6. 首次加载时：如果 barPos 为 null（旧版本或新用户），使用默认位置（底部居中绝对坐标），之后拖拽时转换为偏移量。
 - **用户体验**：开关 DSH 右侧面板时，chips bar 自动跟随对话区水平移动，保持相对位置不变；拖拽、打开管理面板等操作仍正常；旧数据平滑迁移（v0.7.2 的绝对坐标被忽略，首次拖拽时转换为偏移量）。
 
+## 🔧 v0.7.4 修复：拖拽与跟随冲突
+
+v0.7.3 的布局跟随正确，但拖拽失效 —— 跟随循环（ResizeObserver / MutationObserver / 300ms 轮询）在 pointer 拖拽期间仍会把 bar 拉回 `锚点 + 旧偏移`，导致条子几乎拖不动。
+
+**v0.7.4 修复思路**（2026-08-27）：
+
+- **根因**：`updatePosition()` 在拖拽过程中仍会执行，用 store 里尚未更新的旧偏移覆盖用户正在拖动的屏幕坐标；`pointerup` 还读了过期的 `pos` 闭包。
+- **修复方案**：`dragRef.current !== null` 时跳过所有跟随更新；拖拽落盘用 `posRef` 读取最新屏幕坐标并写入新 `{offsetX, offsetY}`，随后再恢复跟随。
+- **用户体验**：拖拽恢复可用，开关侧栏时仍跟随对话区，偏移量持久化不变。
+
 ## 🛠 修复记录（v0.2.0）
 
 v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为**修复前**实况，留作档案）。
@@ -122,7 +132,7 @@ v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为*
 Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-quick-phrases"
 
 # 2. 在 "$env:DSH_HOME\profiles\web\package.json" 里注册两处：
-#    dependencies 加 "dsh-quick-phrases": "^0.7.3"
+#    dependencies 加 "dsh-quick-phrases": "^0.7.4"
 #    dsh.profile.bundles 加 "dsh-quick-phrases"
 
 # 3. 重启 DSH web（新插件需要宿主重启才会被发现）
