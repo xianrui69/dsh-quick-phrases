@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.7.1**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.7.2**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题；v0.7.2 **修复 bar 位置跳动** —— 锚定 barPos 到 bar 本身位置，管理面板用 absolute 定位出现在 bar 正上方，打开/关闭时 bar 位置不再跳动。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -36,6 +36,22 @@ v0.7.0 引入的两个独立浮动窗口（chips bar + 管理面板）导致拖�
   4. 拖拽时阻止在 panel 内部交互元素（inputs、textarea、buttons 等）上触发，避免误拖；
   5. 设置页的管理窗（`StandaloneManageWindow`）仍保留独立浮动 + 拖拽（位置存 localStorage 独立键，不写 store），与 chips bar 管理窗是两个不同的入口。
 - **用户体验**：点击「⚙ 管理」后，管理面板出现在 bar 正上方，拖动 bar（或 panel 标题栏）移动时两者作为一个整体同步移动，不再出现"拖 A 影响 B"的错位感。关闭管理面板后 bar 保持原位。
+
+## 🔧 v0.7.2 修复：位置锚定到 bar
+
+v0.7.1 修复了拖拽冲突，但引入新问题：打开/关闭管理面板时 chips bar 位置会跳动。
+
+**v0.7.2 修复思路**（2026-08-27）：
+
+- **根因**：v0.7.1 中容器使用 `flexbox column` 布局，`barPos` 锚定在容器左上角。当管理面板打开时，容器从该点向下展开（panel 在上、bar 在下），导致 bar 被向下推；或者 CSS 引擎重新计算容器高度时 bar 位置改变。
+- **修复方案**：`barPos` 锚定到 **chips bar 本身**的屏幕位置，管理面板使用 `position: absolute; bottom: 100%` 相对于 bar 定位，让它出现在 bar 正上方。
+- **技术细节**：
+  1. 容器不再使用 `flexbox`，直接作为定位容器；
+  2. bar 是容器的正常流子元素，容器的 `left/top` 就是 bar 的左上角位置；
+  3. panel 使用 `position: absolute; bottom: 100%; left: 0; margin-bottom: 8px` 相对于容器定位；
+  4. 打开 panel 时，它向上生长（出现在 bar 上方），bar 的屏幕位置完全不变；
+  5. 关闭 panel 时，只是移除绝对定位元素，bar 位置同样不变。
+- **用户体验**：点击「⚙ 管理」后，管理面板直接出现在 bar 正上方，bar 保持原位不动；关闭时 bar 也不会跳动；拖拽时 bar + panel 作为整体移动。
 
 ## 🛠 修复记录（v0.2.0）
 
@@ -86,7 +102,7 @@ v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为*
 Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-quick-phrases"
 
 # 2. 在 "$env:DSH_HOME\profiles\web\package.json" 里注册两处：
-#    dependencies 加 "dsh-quick-phrases": "^0.7.1"
+#    dependencies 加 "dsh-quick-phrases": "^0.7.2"
 #    dsh.profile.bundles 加 "dsh-quick-phrases"
 
 # 3. 重启 DSH web（新插件需要宿主重启才会被发现）
