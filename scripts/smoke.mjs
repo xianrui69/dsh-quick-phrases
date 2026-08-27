@@ -106,11 +106,11 @@ if (persisted.phrases[1].autoSubmit !== true || persisted.phrases[0].autoSubmit 
 }
 console.log('ok   autoSubmit default + persistence');
 
-// v0.7.0: chips bar 位置持久化 —— barPos {x,y} 写入 store 并落 localStorage。
-storeHook.update((draft) => { draft.barPos = { x: 200, y: 150 }; });
+// v0.7.3: chips bar 位置持久化 —— barPos {offsetX,offsetY} 写入 store 并落 localStorage。
+storeHook.update((draft) => { draft.barPos = { offsetX: 50, offsetY: -80 }; });
 const persisted2b = JSON.parse(storage.get('dsh-quick-phrases:v2'));
-if (persisted2b.barPos?.x !== 200 || persisted2b.barPos?.y !== 150) { console.error('FAIL: barPos persistence', persisted2b); process.exit(1); }
-console.log('ok   chips bar position persistence (x/y in localStorage)');
+if (persisted2b.barPos?.offsetX !== 50 || persisted2b.barPos?.offsetY !== -80) { console.error('FAIL: barPos offset persistence', persisted2b); process.exit(1); }
+console.log('ok   chips bar offset position persistence (offsetX/offsetY in localStorage)');
 
 // --- hydrate #1: host file missing → seed from localStorage, POST to host ---
 let posted = null;
@@ -133,7 +133,7 @@ if (store2.get().phrases.length !== 6 || store2.get().phrases[0].autoSubmit !== 
 	console.error('FAIL: hydrate seed state wrong');
 	process.exit(1);
 }
-if (store2.get().barPos?.x !== 200) { console.error('FAIL: hydrate seed should keep barPos', store2.get().barPos); process.exit(1); }
+if (store2.get().barPos?.offsetX !== 50) { console.error('FAIL: hydrate seed should keep barPos offset', store2.get().barPos); process.exit(1); }
 console.log('ok   hydrate: host-missing → seeded from localStorage + durable POST');
 
 // --- hydrate #2: host file exists → host wins over localStorage ---
