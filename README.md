@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.7.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.7.1**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -20,6 +20,22 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 | 设置页入口 | DSH「设置」对话框左侧导航**「快捷短语」**（`settings.section` slot，机制同 Token 面板）：点进去**自动弹出同一个浮动管理窗**，快捷条隐藏时也永远可管理 |
 | 宿主文件持久化 | 短语表存 `$DSH_HOME/storages/dsh-quick-phrases/phrases.json`，原子写入（tmp+rename），跨重启、跨浏览器可靠；首次运行自动从旧 localStorage 键迁移；宿主不可达时回退 localStorage |
 | 安全边界 | 纯客户端数据，不进会话日志、不影响模型上下文；宿主路由带同源 fence（loopback + Origin/Sec-Fetch-Site 校验） |
+
+## 🔧 v0.7.1 修复：统一浮动单元
+
+v0.7.0 引入的两个独立浮动窗口（chips bar + 管理面板）导致拖拽冲突 —— 两者各有独立的 `position: fixed` 定位、独立的 pointer capture 和位置存储，拖动一个会干扰另一个。
+
+**v0.7.1 修复思路**（2026-08-27）：
+
+- **根因**：`ManageWindow` 和 `QuickPhrasesBar` 各自是独立 fixed 窗口，各有独立拖拽处理器（`onHeadPointerDown`/`onBarPointerDown`），当管理面板打开时两组 pointer 事件监听器同时活跃 → pointer capture 冲突 → 拖动行为互相干扰。
+- **修复方案**：管理面板不再是独立浮动窗，改为附加在 chips bar 容器内（`flexbox` 布局，panel 在上、bar 在下），**整个容器**作为唯一的拖拽单元（`qp-bar-container`）。拖拽逻辑只应用于容器，panel 和 bar 跟随容器一起移动。
+- **技术细节**：
+  1. 新增 `.qp-bar-container`（`position: fixed`，包含 panel + bar）；
+  2. 移除 `ManageWindow` 的独立定位和拖拽逻辑（它现在只是一个普通面板）；
+  3. 移除 `store.panel` 位置存储，只保留 `store.barPos`（容器的唯一位置）；
+  4. 拖拽时阻止在 panel 内部交互元素（inputs、textarea、buttons 等）上触发，避免误拖；
+  5. 设置页的管理窗（`StandaloneManageWindow`）仍保留独立浮动 + 拖拽（位置存 localStorage 独立键，不写 store），与 chips bar 管理窗是两个不同的入口。
+- **用户体验**：点击「⚙ 管理」后，管理面板出现在 bar 正上方，拖动 bar（或 panel 标题栏）移动时两者作为一个整体同步移动，不再出现"拖 A 影响 B"的错位感。关闭管理面板后 bar 保持原位。
 
 ## 🛠 修复记录（v0.2.0）
 
@@ -70,7 +86,7 @@ v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为*
 Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-quick-phrases"
 
 # 2. 在 "$env:DSH_HOME\profiles\web\package.json" 里注册两处：
-#    dependencies 加 "dsh-quick-phrases": "^0.7.0"
+#    dependencies 加 "dsh-quick-phrases": "^0.7.1"
 #    dsh.profile.bundles 加 "dsh-quick-phrases"
 
 # 3. 重启 DSH web（新插件需要宿主重启才会被发现）
