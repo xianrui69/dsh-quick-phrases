@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.7.2**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题；v0.7.2 **修复 bar 位置跳动** —— 锚定 barPos 到 bar 本身位置，管理面板用 absolute 定位出现在 bar 正上方，打开/关闭时 bar 位置不再跳动。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.7.3**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）；v0.7.1 **修复拖拽冲突 UX** —— 管理面板不再是独立浮动窗，而是附加在 chips bar 上方作为一个整体，拖动时两者统一移动，彻底解决 v0.7.0 中两个独立 fixed 窗口互相干扰的问题；v0.7.2 **修复 bar 位置跳动** —— 锚定 barPos 到 bar 本身位置，管理面板用 absolute 定位出现在 bar 正上方，打开/关闭时 bar 位置不再跳动；v0.7.3 **相对锚点定位** —— barPos 改为相对输入框的偏移量，监听布局变化（ResizeObserver + MutationObserver + 定时器后备），自动跟随对话区移动，解决开关右侧面板时 bar 位置不同步的问题。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -52,6 +52,26 @@ v0.7.1 修复了拖拽冲突，但引入新问题：打开/关闭管理面板时
   4. 打开 panel 时，它向上生长（出现在 bar 上方），bar 的屏幕位置完全不变；
   5. 关闭 panel 时，只是移除绝对定位元素，bar 位置同样不变。
 - **用户体验**：点击「⚙ 管理」后，管理面板直接出现在 bar 正上方，bar 保持原位不动；关闭时 bar 也不会跳动；拖拽时 bar + panel 作为整体移动。
+
+## 🔧 v0.7.3 修复：相对锚点定位
+
+v0.7.2 解决了打开管理面板时的跳动，但 bar 仍使用固定视口坐标。当 DSH 布局改变（如开关右侧面板）时，bar 停留在原像素位置，不会跟随对话区移动。
+
+**v0.7.3 修复思路**（2026-08-27）：
+
+- **根因**：v0.7.2 中 `barPos` 存储的是绝对视口坐标 `{x, y}`。当用户打开/关闭右侧编辑面板时，对话区和输入框水平移动，但 bar 仍固定在原像素位置（`position: fixed; left: x; top: y`），导致 bar 脱离对话区。
+- **修复方案**：`barPos` 改为相对于**输入框（composer textarea）**的偏移量 `{offsetX, offsetY}`。监听锚点元素变化（ResizeObserver + MutationObserver + 定时器后备），自动调整 bar 位置 = 锚点位置 + 偏移量。
+- **技术细节**：
+  1. 挂载时查找锚点元素：从组件向上爬 DOM，找到 `textarea[placeholder]`（composer）；
+  2. `barPos` 格式从 `{x, y}` 改为 `{offsetX, offsetY}`（相对于锚点左上角的偏移）；
+  3. 计算 bar 屏幕位置：`anchorRect.left + offsetX, anchorRect.top + offsetY`；
+  4. 拖拽时：拖拽结束后重新计算并保存偏移量（当前位置 - 锚点位置）；
+  5. 监听机制：
+     - ResizeObserver 监听锚点元素尺寸变化；
+     - MutationObserver 监听 document.body 的 class/style 变化（捕获布局切换）；
+     - 定时器后备（300ms）：比较锚点的 rect（left/top/width/height），变化时更新位置。
+  6. 首次加载时：如果 barPos 为 null（旧版本或新用户），使用默认位置（底部居中绝对坐标），之后拖拽时转换为偏移量。
+- **用户体验**：开关 DSH 右侧面板时，chips bar 自动跟随对话区水平移动，保持相对位置不变；拖拽、打开管理面板等操作仍正常；旧数据平滑迁移（v0.7.2 的绝对坐标被忽略，首次拖拽时转换为偏移量）。
 
 ## 🛠 修复记录（v0.2.0）
 
@@ -102,7 +122,7 @@ v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为*
 Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-quick-phrases"
 
 # 2. 在 "$env:DSH_HOME\profiles\web\package.json" 里注册两处：
-#    dependencies 加 "dsh-quick-phrases": "^0.7.2"
+#    dependencies 加 "dsh-quick-phrases": "^0.7.3"
 #    dsh.profile.bundles 加 "dsh-quick-phrases"
 
 # 3. 重启 DSH web（新插件需要宿主重启才会被发现）
