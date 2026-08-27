@@ -4,7 +4,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 > 🇬🇧 TL;DR — A DeepSeek Harness client plugin that adds a quick-phrase chip bar above the composer and a `/`-triggered phrase menu (phrases group pinned to the top). Pure client-side, host-file persistence, no build step.
 
-当前版本 **v0.6.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
+当前版本 **v0.7.0**。v0.1.0 曾带着 2 个 UI 瑕疵以"封存状态"开源求助，v0.2.0 两个都已修复（见 [修复记录](#-修复记录v020)）；v0.3.0 新增每条短语独立的 `/` 菜单开关；v0.3.1 修复"隐藏快捷条后管理入口随之消失"；v0.4.0 把「快捷短语」挂进 **DSH 设置对话框**（`settings.section` slot）；v0.5.0 管理界面改为 **Token 面板式浮动窗**——标题栏拖拽、放到哪记到哪；v0.6.0 新增每条短语独立的 **▬ 快捷条开关**（不上条的短语仍可 `/名称`+回车 展开）；v0.7.0 **chips bar 本身可拖拽**——整个快捷条变成浮动窗口，拖动到任意位置、位置持久化（学 Token 面板）。另有一个**多窗口并发写**的架构缺陷尚未修复（真实踩过坑），见 [已知缺陷](#️-已知缺陷求助-)。
 
 ---
 
@@ -12,7 +12,7 @@ DeepSeek Harness（DSH）客户端插件：**输入框上方的快捷短语条 +
 
 | 功能 | 说明 |
 |---|---|
-| 快捷短语条 | 常驻输入框上方（官方 `conversation.input.dock` slot），与输入卡**逐像素对齐**（运行时实测镜像），点击 chip 把短语填入输入框；**每条短语可用 ▬ 开关单独控制是否上条**（默认显示）；取消勾选「显示快捷条」后**仍保留一枚低透明度 ⚙ 常驻入口**（悬停变清晰），不会把自己埋掉 |
+| 快捷短语条 | **v0.7.0 浮动可拖拽**：整个条子变成浮动窗口（`position: fixed`），拖动到任意位置、位置持久化（宿主文件 + localStorage，学 Token 面板），首次加载默认底部居中；点击 chip 把短语填入输入框；**每条短语可用 ▬ 开关单独控制是否上条**（默认显示）；取消勾选「显示快捷条」后**仍保留一枚低透明度 ⚙ 常驻入口**（悬停变清晰），不会把自己埋掉 |
 | ➤ 点击即发送 | 每条短语可独立开启；点击后**延迟验证草稿确实写入**再提交（防抢跑发出空/旧草稿），chip 上带 ➤ 标记 |
 | `/` 短语菜单 | 输入 `/` 出现「短语」分组，**置顶于命令/技能等全部内置组**（`order: -1`），★置顶排最前，按名称/内容模糊过滤；**仅显示带 `/` 标记的短语**（每条独立开关，默认不进菜单，保持菜单清爽） |
 | `/名称` + 回车 | 草稿为 `/短语名` 时，提交自动展开为短语内容（matchEnter 纯文本路径）；此显式命令路径对**全部**短语生效，不受 `/` 开关限制 |
@@ -70,7 +70,7 @@ v0.1.0 封存时遗留的两个瑕疵，修复思路与过程如下（截图为*
 Copy-Item -Recurse <本包目录> "$env:DSH_HOME\profiles\web\node_modules\dsh-quick-phrases"
 
 # 2. 在 "$env:DSH_HOME\profiles\web\package.json" 里注册两处：
-#    dependencies 加 "dsh-quick-phrases": "^0.3.0"
+#    dependencies 加 "dsh-quick-phrases": "^0.7.0"
 #    dsh.profile.bundles 加 "dsh-quick-phrases"
 
 # 3. 重启 DSH web（新插件需要宿主重启才会被发现）
@@ -101,7 +101,7 @@ lib/index.js   宿主入口：GET/POST /plugins/dsh-quick-phrases/phrases 路由
 lib/client.js  客户端 bundle（window.__ModuleLoader__ 格式，手写无需构建）：
                ├─ InputTriggerSource（trigger '/', order -1 置顶；candidates 按 slash 标记过滤 + matchEnter 展开发送）
                ├─ conversation.input.dock slot（chips 条 + 管理面板，React 18 + useSyncExternalStore）
-               │   └─ 对齐：运行时镜像输入卡几何（alignBar + ResizeObserver 保鲜）
+               │   └─ v0.7.0 chips bar 浮动可拖拽：fixed 定位 + pointer 事件拖拽 + barPos 位置持久化
                ├─ settings.section slot（设置对话框「快捷短语」导航项 → 自动弹出浮动管理窗）
                └─ 持久化：宿主文件为准，localStorage 缓存/回退，旧键自动迁移
 ```

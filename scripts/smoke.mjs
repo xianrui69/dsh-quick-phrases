@@ -112,6 +112,12 @@ const persisted2 = JSON.parse(storage.get('dsh-quick-phrases:v2'));
 if (persisted2.panel?.x !== 120 || persisted2.panel?.y !== 88) { console.error('FAIL: panel pos persistence', persisted2); process.exit(1); }
 console.log('ok   panel position persistence (x/y in localStorage)');
 
+// v0.7.0: chips bar 位置持久化 —— barPos {x,y} 写入 store 并落 localStorage。
+storeHook.update((draft) => { draft.barPos = { x: 200, y: 150 }; });
+const persisted2b = JSON.parse(storage.get('dsh-quick-phrases:v2'));
+if (persisted2b.barPos?.x !== 200 || persisted2b.barPos?.y !== 150) { console.error('FAIL: barPos persistence', persisted2b); process.exit(1); }
+console.log('ok   chips bar position persistence (x/y in localStorage)');
+
 // --- hydrate #1: host file missing → seed from localStorage, POST to host ---
 let posted = null;
 globalThis.fetch = async (url, opts = {}) => {
@@ -161,6 +167,10 @@ console.log('ok   hydrate: host file wins over localStorage');
 // v0.5.0 迁移默认：宿主文件没有 panel 字段 → sanitize 成 null（浮动窗用默认居中位）。
 if (store3.get().panel !== null) { console.error('FAIL: missing host panel should sanitize to null', store3.get().panel); process.exit(1); }
 console.log('ok   panel sanitize: host without panel → null');
+
+// v0.7.0 迁移默认：宿主文件没有 barPos 字段 → sanitize 成 null（chips bar 用默认底部居中位）。
+if (store3.get().barPos !== null) { console.error('FAIL: missing host barPos should sanitize to null', store3.get().barPos); process.exit(1); }
+console.log('ok   barPos sanitize: host without barPos → null');
 
 // v0.6.0: bar 开关 —— 旧表无 bar 字段迁移默认显示；置 false 后持久化。
 if (store3.get().phrases[0].bar !== true) { console.error('FAIL: legacy phrase should default bar=true', store3.get().phrases[0]); process.exit(1); }
