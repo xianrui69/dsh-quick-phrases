@@ -112,6 +112,20 @@ const persisted2b = JSON.parse(storage.get('dsh-quick-phrases:v2'));
 if (persisted2b.barPos?.offsetX !== 50 || persisted2b.barPos?.offsetY !== -80) { console.error('FAIL: barPos offset persistence', persisted2b); process.exit(1); }
 console.log('ok   chips bar offset position persistence (offsetX/offsetY in localStorage)');
 
+// v0.7.4: 拖拽落盘写入新偏移，锚点移动后屏幕位置仍 = 锚点 + 偏移（跟随不丢偏移）。
+const barPosMath = exports_.__barPos;
+const anchorA = { left: 100, top: 200, width: 400, height: 80 };
+const offsetA = { offsetX: 50, offsetY: -80 };
+const screenA = barPosMath.screenFromAnchorOffset(anchorA, offsetA);
+if (screenA.x !== 150 || screenA.y !== 120) { console.error('FAIL: screen from offset', screenA); process.exit(1); }
+const draggedScreen = { x: 200, y: 250 };
+const draggedOffset = barPosMath.offsetFromScreen(draggedScreen, anchorA);
+if (draggedOffset.offsetX !== 100 || draggedOffset.offsetY !== 50) { console.error('FAIL: drag should persist new offset', draggedOffset); process.exit(1); }
+const anchorB = { left: 300, top: 200, width: 400, height: 80 };
+const screenB = barPosMath.screenFromAnchorOffset(anchorB, draggedOffset);
+if (screenB.x !== 400 || screenB.y !== 250) { console.error('FAIL: anchor move should follow with same offset', screenB); process.exit(1); }
+console.log('ok   drag offset + anchor follow math');
+
 // --- hydrate #1: host file missing → seed from localStorage, POST to host ---
 let posted = null;
 globalThis.fetch = async (url, opts = {}) => {
